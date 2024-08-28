@@ -33,12 +33,12 @@ TTS_API_URL = 'http://180.218.16.187:30303/getTTSfromText'
 LLM_API_URL = 'http://61.66.218.237:30304/getVLM'
 SERVER_PORT = 10000
 
+line_bot_api = None
+line_handler = None
+
 if LINE_CHANNEL_ACCESS_TOKEN and LINE_CHANNEL_SECRET:
     line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
     line_handler = WebhookHandler(LINE_CHANNEL_SECRET)
-else:
-    line_bot_api = None
-    line_handler = None
 
 def get_text_from_audio(audio_path):
     payload = {'doStyle': '0'}
@@ -112,58 +112,59 @@ def callback():
         abort(400)
     return "OK"
 
-@line_handler.add(MessageEvent, message=AudioMessage)
-def handle_audio_message(event):
-    message_content = line_bot_api.get_message_content(event.message.id)
-    audio_path = f'static/{int(time.time())}.mp3'
-    
-    with open(audio_path, 'wb') as fd:
-        for chunk in message_content.iter_content():
-            fd.write(chunk)
-    
-    text = get_text_from_audio(audio_path)
-    llm_response = get_response_from_llm(text)[0]['content']
-    reply_audio_path = get_audio_from_text(llm_response)
-    
-    if os.path.exists(reply_audio_path):
-        line_bot_api.reply_message(
-            event.reply_token,
-            [
-                TextSendMessage(text=llm_response),
-                AudioSendMessage(
-                    original_content_url=f'https://linebotapi-1a39.onrender.com/{reply_audio_path}',
-                    duration=330
-                )
-            ]
-        )
-    else:
-        line_bot_api.reply_message(
-            event.reply_token,
-            TextSendMessage(text="處理音訊時出錯")
-        )
+if line_handler:
+    @line_handler.add(MessageEvent, message=AudioMessage)
+    def handle_audio_message(event):
+        message_content = line_bot_api.get_message_content(event.message.id)
+        audio_path = f'static/{int(time.time())}.mp3'
+        
+        with open(audio_path, 'wb') as fd:
+            for chunk in message_content.iter_content():
+                fd.write(chunk)
+        
+        text = get_text_from_audio(audio_path)
+        llm_response = get_response_from_llm(text)
+        reply_audio_path = get_audio_from_text(llm_response)
+        
+        if os.path.exists(reply_audio_path):
+            line_bot_api.reply_message(
+                event.reply_token,
+                [
+                    TextSendMessage(text=llm_response),
+                    AudioSendMessage(
+                        original_content_url=f'https://your-server.com/{reply_audio_path}',
+                        duration=330
+                    )
+                ]
+            )
+        else:
+            line_bot_api.reply_message(
+                event.reply_token,
+                TextSendMessage(text="處理音訊時出錯")
+            )
 
-@line_handler.add(MessageEvent, message=TextMessage)
-def handle_text_message(event):
-    text = event.message.text
-    llm_response = get_response_from_llm(text)[0]['content']
-    reply_audio_path = get_audio_from_text(llm_response)
-    
-    if os.path.exists(reply_audio_path):
-        line_bot_api.reply_message(
-            event.reply_token,
-            [
-                TextSendMessage(text=llm_response),
-                AudioSendMessage(
-                    original_content_url=f'https://linebotapi-1a39.onrender.com/{reply_audio_path}',
-                    duration=330
-                )
-            ]
-        )
-    else:
-        line_bot_api.reply_message(
-            event.reply_token,
-            TextSendMessage(text="處理音訊時出錯")
-        )
+    @line_handler.add(MessageEvent, message=TextMessage)
+    def handle_text_message(event):
+        text = event.message.text
+        llm_response = get_response_from_llm(text)
+        reply_audio_path = get_audio_from_text(llm_response)
+        
+        if os.path.exists(reply_audio_path):
+            line_bot_api.reply_message(
+                event.reply_token,
+                [
+                    TextSendMessage(text=llm_response),
+                    AudioSendMessage(
+                        original_content_url=f'https://your-server.com/{reply_audio_path}',
+                        duration=330
+                    )
+                ]
+            )
+        else:
+            line_bot_api.reply_message(
+                event.reply_token,
+                TextSendMessage(text="處理音訊時出錯")
+            )
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=SERVER_PORT)
