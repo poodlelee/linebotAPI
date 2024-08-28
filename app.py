@@ -13,19 +13,27 @@ app = Flask(__name__)
 # Configuration
 LINE_CHANNEL_ACCESS_TOKEN = 'w4627SjiixmfjJ7LNg6U8q9L8Nh+NXgaN4ELtQ9FkxjO8oO0aVdT8L9J9eGT/qNM9IrLMzjcngjmCtPy+Qa70dxtU0e4e8F6NA6hwbIM3lppgmzwNMiC257n6Eq8eLt+buQ8lSfFFNQF1AJvRZGRIgdB04t89/1O/w1cDnyilFU='
 LINE_CHANNEL_SECRET = '1d982942ffefc23710b07c6abc050cb1'
+STT_API_URL = 'http://180.218.16.187:30303/recognition_long_audio'
 TTS_API_URL = 'YOUR_TTS_API_URL'
-STT_API_URL = 'YOUR_STT_API_URL'
 SERVER_PORT = 10000
 
 line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
 line_handler = WebhookHandler(LINE_CHANNEL_SECRET)
 
 def get_text_from_audio(audio_path):
-    with open(audio_path, 'rb') as audio_file:
-        files = {'audio': audio_file}
-        response = requests.post(STT_API_URL, files=files)
-        data = response.json()
-        return data.get('result', '無法辨識音訊')
+    # Prepare the payload and files for the STT API
+    payload = {'doStyle': '0'}
+    files = [
+        ('audio', (os.path.basename(audio_path), open(audio_path, 'rb'), 'audio/mpeg'))
+    ]
+    headers = {}
+    
+    # Send the request to the STT API
+    response = requests.post(STT_API_URL, headers=headers, data=payload, files=files)
+    data = response.json()
+    
+    # Extract and return the transcription result
+    return data.get('result', '無法辨識音訊')
 
 def get_audio_from_text(text):
     params = {'content': text}
