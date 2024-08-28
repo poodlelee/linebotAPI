@@ -98,7 +98,7 @@ def handle_audio_message(event):
     print(text)
     
     # Step 2: Get response from LLM API based on STT result
-    llm_response = get_response_from_llm(text)
+    llm_response = get_response_from_llm(text)[0]['content']
     print(llm_response)
     
     # Step 3: Convert LLM response to audio using TTS API
