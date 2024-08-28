@@ -95,12 +95,15 @@ def handle_audio_message(event):
     
     # Step 1: Convert audio to text using STT API
     text = get_text_from_audio(audio_path)
+    print(text)
     
     # Step 2: Get response from LLM API based on STT result
     llm_response = get_response_from_llm(text)
+    print(llm_response)
     
     # Step 3: Convert LLM response to audio using TTS API
     reply_audio_path = get_audio_from_text(llm_response)
+    print(reply_audio_path)
     
     if os.path.exists(reply_audio_path):
         line_bot_api.reply_message(
