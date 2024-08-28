@@ -15,6 +15,7 @@ LINE_CHANNEL_ACCESS_TOKEN = 'w4627SjiixmfjJ7LNg6U8q9L8Nh+NXgaN4ELtQ9FkxjO8oO0aVd
 LINE_CHANNEL_SECRET = '1d982942ffefc23710b07c6abc050cb1'
 STT_API_URL = 'http://180.218.16.187:30303/recognition_long_audio'
 TTS_API_URL = 'http://180.218.16.187:30303/getTTSfromText'
+LLM_API_URL = 'http://61.66.218.237:30304/getVLM'
 SERVER_PORT = 10000
 
 line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
@@ -34,6 +35,19 @@ def get_text_from_audio(audio_path):
     
     # Extract and return the transcription result
     return data.get('result', '無法辨識音訊')
+
+def get_response_from_llm(query):
+    # Prepare the payload for the LLM API
+    payload = {'query': query}
+    files = []  # Assuming no file is to be sent for this use case
+    headers = {}
+
+    # Send the request to the LLM API
+    response = requests.post(LLM_API_URL, headers=headers, data=payload, files=files)
+    data = response.json()
+    
+    # Extract and return the LLM's response
+    return data.get('result', '無法獲取回應')
 
 def get_audio_from_text(text):
     # Prepare the payload for the TTS API
@@ -79,16 +93,22 @@ def handle_audio_message(event):
         for chunk in message_content.iter_content():
             fd.write(chunk)
     
+    # Step 1: Convert audio to text using STT API
     text = get_text_from_audio(audio_path)
-    reply_audio_path = get_audio_from_text(text)
+    
+    # Step 2: Get response from LLM API based on STT result
+    llm_response = get_response_from_llm(text)
+    
+    # Step 3: Convert LLM response to audio using TTS API
+    reply_audio_path = get_audio_from_text(llm_response)
     
     if os.path.exists(reply_audio_path):
         line_bot_api.reply_message(
             event.reply_token,
             [
-                TextSendMessage(text=text),
+                TextSendMessage(text=llm_response),
                 AudioSendMessage(
-                    original_content_url=f'https://your-server.com/{reply_audio_path}',
+                    original_content_url=f'https://linebotapi-1a39.onrender.com/{reply_audio_path}',
                     duration=330
                 )
             ]
