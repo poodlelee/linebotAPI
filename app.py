@@ -5,7 +5,7 @@ from flask import Flask, request, abort
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import (
-    MessageEvent, AudioMessage, TextSendMessage, AudioSendMessage
+    MessageEvent, AudioMessage, TextMessage, TextSendMessage, AudioSendMessage
 )
 
 app = Flask(__name__)
@@ -85,7 +85,6 @@ def home():
 
 @line_handler.add(MessageEvent, message=AudioMessage)
 def handle_audio_message(event):
-    user_id = event.source.user_id
     message_content = line_bot_api.get_message_content(event.message.id)
     audio_path = f'static/{int(time.time())}.mp3'
     
@@ -102,6 +101,35 @@ def handle_audio_message(event):
     print(llm_response)
     
     # Step 3: Convert LLM response to audio using TTS API
+    reply_audio_path = get_audio_from_text(llm_response)
+    print(reply_audio_path)
+    
+    if os.path.exists(reply_audio_path):
+        line_bot_api.reply_message(
+            event.reply_token,
+            [
+                TextSendMessage(text=llm_response),
+                AudioSendMessage(
+                    original_content_url=f'https://linebotapi-1a39.onrender.com/{reply_audio_path}',
+                    duration=330
+                )
+            ]
+        )
+    else:
+        line_bot_api.reply_message(
+            event.reply_token,
+            TextSendMessage(text="處理音訊時出錯")
+        )
+
+@line_handler.add(MessageEvent, message=TextMessage)
+def handle_text_message(event):
+    text = event.message.text
+    
+    # Step 1: Get response from LLM API based on text input
+    llm_response = get_response_from_llm(text)['content']
+    print(llm_response)
+    
+    # Step 2: Convert LLM response to audio using TTS API
     reply_audio_path = get_audio_from_text(llm_response)
     print(reply_audio_path)
     
