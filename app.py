@@ -14,7 +14,7 @@ app = Flask(__name__)
 LINE_CHANNEL_ACCESS_TOKEN = 'w4627SjiixmfjJ7LNg6U8q9L8Nh+NXgaN4ELtQ9FkxjO8oO0aVdT8L9J9eGT/qNM9IrLMzjcngjmCtPy+Qa70dxtU0e4e8F6NA6hwbIM3lppgmzwNMiC257n6Eq8eLt+buQ8lSfFFNQF1AJvRZGRIgdB04t89/1O/w1cDnyilFU='
 LINE_CHANNEL_SECRET = '1d982942ffefc23710b07c6abc050cb1'
 STT_API_URL = 'http://180.218.16.187:30303/recognition_long_audio'
-TTS_API_URL = 'YOUR_TTS_API_URL'
+TTS_API_URL = 'http://180.218.16.187:30303/getTTSfromText'
 SERVER_PORT = 10000
 
 line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
@@ -36,11 +36,23 @@ def get_text_from_audio(audio_path):
     return data.get('result', '無法辨識音訊')
 
 def get_audio_from_text(text):
-    params = {'content': text}
-    response = requests.post(TTS_API_URL, data=params)
+    # Prepare the payload for the TTS API
+    payload = {
+        'tone': '0',
+        'speed': '0',
+        'content': text,
+        'gender': '1'
+    }
+    headers = {}
+
+    # Send the request to the TTS API
+    response = requests.post(TTS_API_URL, headers=headers, data=payload)
     audio_path = f'static/{int(time.time())}.mp3'
+    
+    # Save the audio content returned by the API
     with open(audio_path, 'wb') as f:
         f.write(response.content)
+    
     return audio_path
 
 @app.route("/webhook", methods=["POST"])
