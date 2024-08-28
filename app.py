@@ -1,8 +1,6 @@
 import os
 import time
 import requests
-import json
-import ssl
 from flask import Flask, request, abort
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
@@ -17,16 +15,17 @@ LINE_CHANNEL_ACCESS_TOKEN = 'YOUR_LINE_CHANNEL_ACCESS_TOKEN'
 LINE_CHANNEL_SECRET = 'YOUR_LINE_CHANNEL_SECRET'
 TTS_API_URL = 'YOUR_TTS_API_URL'
 STT_API_URL = 'YOUR_STT_API_URL'
-SERVER_PORT = 8000
+SERVER_PORT = 10000
 
 line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
 line_handler = WebhookHandler(LINE_CHANNEL_SECRET)
 
 def get_text_from_audio(audio_path):
-    files = {'audio': open(audio_path, 'rb')}
-    response = requests.post(STT_API_URL, files=files)
-    data = response.json()
-    return data.get('result', '無法辨識音訊')
+    with open(audio_path, 'rb') as audio_file:
+        files = {'audio': audio_file}
+        response = requests.post(STT_API_URL, files=files)
+        data = response.json()
+        return data.get('result', '無法辨識音訊')
 
 def get_audio_from_text(text):
     params = {'content': text}
@@ -45,6 +44,10 @@ def callback():
     except InvalidSignatureError:
         abort(400)
     return "OK"
+
+@app.route('/')
+def home():
+    return 'Hello World!'
 
 @line_handler.add(MessageEvent, message=AudioMessage)
 def handle_audio_message(event):
