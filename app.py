@@ -126,7 +126,7 @@ def handle_text_message(event):
     text = event.message.text
     
     # Step 1: Get response from LLM API based on text input
-    llm_response = get_response_from_llm(text)['content']
+    llm_response = get_response_from_llm(text)[0]['content']
     print(llm_response)
     
     # Step 2: Convert LLM response to audio using TTS API
