@@ -1,0 +1,80 @@
+import os
+import time
+import requests
+import json
+import ssl
+from flask import Flask, request, abort
+from linebot import LineBotApi, WebhookHandler
+from linebot.exceptions import InvalidSignatureError
+from linebot.models import (
+    MessageEvent, AudioMessage, TextSendMessage, AudioSendMessage
+)
+
+app = Flask(__name__)
+
+# Configuration
+LINE_CHANNEL_ACCESS_TOKEN = 'YOUR_LINE_CHANNEL_ACCESS_TOKEN'
+LINE_CHANNEL_SECRET = 'YOUR_LINE_CHANNEL_SECRET'
+TTS_API_URL = 'YOUR_TTS_API_URL'
+STT_API_URL = 'YOUR_STT_API_URL'
+SERVER_PORT = 8000
+
+line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
+line_handler = WebhookHandler(LINE_CHANNEL_SECRET)
+
+def get_text_from_audio(audio_path):
+    files = {'audio': open(audio_path, 'rb')}
+    response = requests.post(STT_API_URL, files=files)
+    data = response.json()
+    return data.get('result', '無法辨識音訊')
+
+def get_audio_from_text(text):
+    params = {'content': text}
+    response = requests.post(TTS_API_URL, data=params)
+    audio_path = f'static/{int(time.time())}.mp3'
+    with open(audio_path, 'wb') as f:
+        f.write(response.content)
+    return audio_path
+
+@app.route("/webhook", methods=["POST"])
+def callback():
+    signature = request.headers["X-Line-Signature"]
+    body = request.get_data(as_text=True)
+    try:
+        line_handler.handle(body, signature)
+    except InvalidSignatureError:
+        abort(400)
+    return "OK"
+
+@line_handler.add(MessageEvent, message=AudioMessage)
+def handle_audio_message(event):
+    user_id = event.source.user_id
+    message_content = line_bot_api.get_message_content(event.message.id)
+    audio_path = f'static/{int(time.time())}.mp3'
+    
+    with open(audio_path, 'wb') as fd:
+        for chunk in message_content.iter_content():
+            fd.write(chunk)
+    
+    text = get_text_from_audio(audio_path)
+    reply_audio_path = get_audio_from_text(text)
+    
+    if os.path.exists(reply_audio_path):
+        line_bot_api.reply_message(
+            event.reply_token,
+            [
+                TextSendMessage(text=text),
+                AudioSendMessage(
+                    original_content_url=f'https://your-server.com/{reply_audio_path}',
+                    duration=330
+                )
+            ]
+        )
+    else:
+        line_bot_api.reply_message(
+            event.reply_token,
+            TextSendMessage(text="處理音訊時出錯")
+        )
+
+if __name__ == "__main__":
+    app.run(debug=True, host="0.0.0.0", port=SERVER_PORT)
