@@ -11,7 +11,7 @@ import requests
 import logging
 
 app = Flask(__name__)
-app.secret_key = ''  # 用於更新資訊
+app.secret_key = 'os.urandom(24)'  # 用於未確定 key 前，先預設一組 key
 
 # 設置Log記錄
 logging.basicConfig(level=logging.INFO)
