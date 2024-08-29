@@ -1,15 +1,20 @@
 import os
 import time
 import configparser
-from flask import Flask, request, abort, render_template, redirect, url_for
+from flask import Flask, request, abort, render_template, redirect, url_for, flash
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import (
     MessageEvent, AudioMessage, TextMessage, TextSendMessage, AudioSendMessage
 )
 import requests
+import logging
 
 app = Flask(__name__)
+app.secret_key = 'your_secret_key'  # 用于flash消息
+
+# 设置日志记录
+logging.basicConfig(level=logging.INFO)
 
 # Default configurations
 config = configparser.ConfigParser()
@@ -20,13 +25,16 @@ if os.path.exists(CONFIG_FILE):
 else:
     config['LINE'] = {
         'LINE_CHANNEL_ACCESS_TOKEN': '',
-        'LINE_CHANNEL_SECRET': ''
+        'LINE_CHANNEL_SECRET': '',
+        'SERVER_URL': ''  # 确保在配置文件中存在 SERVER_URL 键
     }
     with open(CONFIG_FILE, 'w') as configfile:
         config.write(configfile)
 
-LINE_CHANNEL_ACCESS_TOKEN = config['LINE']['LINE_CHANNEL_ACCESS_TOKEN']
-LINE_CHANNEL_SECRET = config['LINE']['LINE_CHANNEL_SECRET']
+# 使用 get 方法提供默认值，避免 KeyError
+LINE_CHANNEL_ACCESS_TOKEN = config.get('LINE', 'LINE_CHANNEL_ACCESS_TOKEN', fallback='')
+LINE_CHANNEL_SECRET = config.get('LINE', 'LINE_CHANNEL_SECRET', fallback='')
+SERVER_URL = config.get('LINE', 'SERVER_URL', fallback='')
 
 STT_API_URL = 'http://180.218.16.187:30303/recognition_long_audio'
 TTS_API_URL = 'http://180.218.16.187:30303/getTTSfromText'
@@ -77,26 +85,36 @@ def home():
     if request.method == "POST":
         token = request.form.get("LINE_CHANNEL_ACCESS_TOKEN")
         secret = request.form.get("LINE_CHANNEL_SECRET")
+        server_url = request.form.get("SERVER_URL")
         
         config['LINE']['LINE_CHANNEL_ACCESS_TOKEN'] = token
         config['LINE']['LINE_CHANNEL_SECRET'] = secret
+        config['LINE']['SERVER_URL'] = server_url
         
         with open(CONFIG_FILE, 'w') as configfile:
             config.write(configfile)
         
-        global line_bot_api, line_handler
+        global line_bot_api, line_handler, SERVER_URL
         line_bot_api = LineBotApi(token)
         line_handler = WebhookHandler(secret)
+        SERVER_URL = server_url
+
+        # 记录日志
+        logging.info(f"LINE_CHANNEL_ACCESS_TOKEN: {token}")
+        logging.info(f"LINE_CHANNEL_SECRET: {secret}")
+        logging.info(f"SERVER_URL: {server_url}")
 
         # Dynamically add handlers after initialization
         add_line_handlers(line_handler)
         
-        return redirect(url_for("callback"))
+        flash("设置成功，Line Bot 已启动并运行。")
+        return redirect(url_for("home"))
     
     return '''
     <form method="post">
         LINE_CHANNEL_ACCESS_TOKEN: <input type="text" name="LINE_CHANNEL_ACCESS_TOKEN"><br>
         LINE_CHANNEL_SECRET: <input type="text" name="LINE_CHANNEL_SECRET"><br>
+        SERVER_URL: <input type="text" name="SERVER_URL"><br>
         <input type="submit" value="Save">
     </form>
     '''
@@ -112,7 +130,7 @@ def add_line_handlers(handler):
                 fd.write(chunk)
         
         text = get_text_from_audio(audio_path)
-        llm_response = get_response_from_llm(text)
+        llm_response = get_response_from_llm(text)[0]['content']
         reply_audio_path = get_audio_from_text(llm_response)
         
         if os.path.exists(reply_audio_path):
@@ -121,7 +139,7 @@ def add_line_handlers(handler):
                 [
                     TextSendMessage(text=llm_response),
                     AudioSendMessage(
-                        original_content_url=f'https://your-server.com/{reply_audio_path}',
+                        original_content_url=f'{SERVER_URL}/{reply_audio_path}',
                         duration=330
                     )
                 ]
@@ -135,7 +153,7 @@ def add_line_handlers(handler):
     @handler.add(MessageEvent, message=TextMessage)
     def handle_text_message(event):
         text = event.message.text
-        llm_response = get_response_from_llm(text)
+        llm_response = get_response_from_llm(text)[0]['content']
         reply_audio_path = get_audio_from_text(llm_response)
         
         if os.path.exists(reply_audio_path):
@@ -144,7 +162,7 @@ def add_line_handlers(handler):
                 [
                     TextSendMessage(text=llm_response),
                     AudioSendMessage(
-                        original_content_url=f'https://your-server.com/{reply_audio_path}',
+                        original_content_url=f'{SERVER_URL}/{reply_audio_path}',
                         duration=330
                     )
                 ]
