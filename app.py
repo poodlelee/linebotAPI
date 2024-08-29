@@ -102,7 +102,7 @@ def home():
         line_handler = WebhookHandler(secret)
         SERVER_URL = server_url
 
-        # 記錄日志
+        # 記錄LOG
         logging.info(f"LINE_CHANNEL_ACCESS_TOKEN: {token}")
         logging.info(f"LINE_CHANNEL_SECRET: {secret}")
         logging.info(f"SERVER_URL: {server_url}")
@@ -133,8 +133,17 @@ def add_line_handlers(handler):
                 fd.write(chunk)
         
         text = get_text_from_audio(audio_path)
+        # 記錄LOG
+        logging.info(f"STT: {text}")
+        
         llm_response = get_response_from_llm(text)[0]['content']
+        # 記錄LOG
+        logging.info(f"LLM Reply: {llm_response}")
+        
         reply_audio_path = get_audio_from_text(llm_response)
+        # 記錄LOG
+        logging.info(f"TTS: {reply_audio_path}")
+
         
         if os.path.exists(reply_audio_path):
             line_bot_api.reply_message(
@@ -157,7 +166,12 @@ def add_line_handlers(handler):
     def handle_text_message(event):
         text = event.message.text
         llm_response = get_response_from_llm(text)[0]['content']
+        # 記錄LOG
+        logging.info(f"LLM Reply: {llm_response}")
+        
         reply_audio_path = get_audio_from_text(llm_response)
+        # 記錄LOG
+        logging.info(f"TTS: {reply_audio_path}")
         
         if os.path.exists(reply_audio_path):
             line_bot_api.reply_message(
