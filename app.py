@@ -87,6 +87,9 @@ def home():
         global line_bot_api, line_handler
         line_bot_api = LineBotApi(token)
         line_handler = WebhookHandler(secret)
+
+        # Dynamically add handlers after initialization
+        add_line_handlers(line_handler)
         
         return redirect(url_for("callback"))
     
@@ -98,22 +101,8 @@ def home():
     </form>
     '''
 
-@app.route("/webhook", methods=["POST"])
-def callback():
-    if not line_handler:
-        abort(500, "LINE bot has not been configured.")
-    
-    signature = request.headers["X-Line-Signature"]
-    body = request.get_data(as_text=True)
-    
-    try:
-        line_handler.handle(body, signature)
-    except InvalidSignatureError:
-        abort(400)
-    return "OK"
-
-if line_handler:
-    @line_handler.add(MessageEvent, message=AudioMessage)
+def add_line_handlers(handler):
+    @handler.add(MessageEvent, message=AudioMessage)
     def handle_audio_message(event):
         message_content = line_bot_api.get_message_content(event.message.id)
         audio_path = f'static/{int(time.time())}.mp3'
@@ -143,7 +132,7 @@ if line_handler:
                 TextSendMessage(text="處理音訊時出錯")
             )
 
-    @line_handler.add(MessageEvent, message=TextMessage)
+    @handler.add(MessageEvent, message=TextMessage)
     def handle_text_message(event):
         text = event.message.text
         llm_response = get_response_from_llm(text)
@@ -165,6 +154,20 @@ if line_handler:
                 event.reply_token,
                 TextSendMessage(text="處理音訊時出錯")
             )
+
+@app.route("/webhook", methods=["POST"])
+def callback():
+    if not line_handler:
+        abort(500, "LINE bot has not been configured.")
+    
+    signature = request.headers["X-Line-Signature"]
+    body = request.get_data(as_text=True)
+    
+    try:
+        line_handler.handle(body, signature)
+    except InvalidSignatureError:
+        abort(400)
+    return "OK"
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=SERVER_PORT)
