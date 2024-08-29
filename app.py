@@ -11,9 +11,9 @@ import requests
 import logging
 
 app = Flask(__name__)
-app.secret_key = 'your_secret_key'  # 用于flash消息
+app.secret_key = ''  # 用於更新資訊
 
-# 设置日志记录
+# 設置Log記錄
 logging.basicConfig(level=logging.INFO)
 
 # Default configurations
@@ -24,14 +24,14 @@ if os.path.exists(CONFIG_FILE):
     config.read(CONFIG_FILE)
 else:
     config['LINE'] = {
-        'LINE_CHANNEL_ACCESS_TOKEN': '',
-        'LINE_CHANNEL_SECRET': '',
-        'SERVER_URL': ''  # 确保在配置文件中存在 SERVER_URL 键
+        'LINE_CHANNEL_ACCESS_TOKEN': '',    # 設定 LINE ACCESS_TOKEN
+        'LINE_CHANNEL_SECRET': '',  # 設定 LINE CHANNEL SECRET
+        'SERVER_URL': ''  # 設定 SERVER_URL 
     }
     with open(CONFIG_FILE, 'w') as configfile:
         config.write(configfile)
 
-# 使用 get 方法提供默认值，避免 KeyError
+# 使用 get 方法提供默認值，避免 KeyError
 LINE_CHANNEL_ACCESS_TOKEN = config.get('LINE', 'LINE_CHANNEL_ACCESS_TOKEN', fallback='')
 LINE_CHANNEL_SECRET = config.get('LINE', 'LINE_CHANNEL_SECRET', fallback='')
 SERVER_URL = config.get('LINE', 'SERVER_URL', fallback='')
@@ -39,7 +39,7 @@ SERVER_URL = config.get('LINE', 'SERVER_URL', fallback='')
 STT_API_URL = 'http://180.218.16.187:30303/recognition_long_audio'
 TTS_API_URL = 'http://180.218.16.187:30303/getTTSfromText'
 LLM_API_URL = 'http://61.66.218.237:30304/getVLM'
-SERVER_PORT = 10000
+SERVER_PORT = 10000 #免費空間 Render.com 預設 PORT
 
 line_bot_api = None
 line_handler = None
@@ -48,6 +48,7 @@ if LINE_CHANNEL_ACCESS_TOKEN and LINE_CHANNEL_SECRET:
     line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
     line_handler = WebhookHandler(LINE_CHANNEL_SECRET)
 
+#語音轉文字 (需先架設好 Whisper Server)
 def get_text_from_audio(audio_path):
     payload = {'doStyle': '0'}
     files = [
@@ -58,6 +59,7 @@ def get_text_from_audio(audio_path):
     data = response.json()
     return data.get('result', '無法辨識音訊')
 
+#LLM語言模型 (需先架設好 LLM Server)
 def get_response_from_llm(query):
     payload = {'query': query}
     files = []
@@ -66,12 +68,13 @@ def get_response_from_llm(query):
     data = response.json()
     return data.get('result', '無法獲取回應')
 
+#文字轉語音  (需先架設好 TTS Server)
 def get_audio_from_text(text):
     payload = {
-        'tone': '0',
-        'speed': '0',
-        'content': text,
-        'gender': '1'
+        'tone': '0',    #語音音高
+        'speed': '0',   #語音速度
+        'content': text,#語音內容
+        'gender': '1'   #語音性別
     }
     headers = {}
     response = requests.post(TTS_API_URL, headers=headers, data=payload)
@@ -99,7 +102,7 @@ def home():
         line_handler = WebhookHandler(secret)
         SERVER_URL = server_url
 
-        # 记录日志
+        # 記錄日志
         logging.info(f"LINE_CHANNEL_ACCESS_TOKEN: {token}")
         logging.info(f"LINE_CHANNEL_SECRET: {secret}")
         logging.info(f"SERVER_URL: {server_url}")
@@ -107,7 +110,7 @@ def home():
         # Dynamically add handlers after initialization
         add_line_handlers(line_handler)
         
-        flash("设置成功，Line Bot 已启动并运行。")
+        flash("設置成功，Line Bot 已啟動並且運作。")
         return redirect(url_for("home"))
     
     return '''
@@ -147,7 +150,7 @@ def add_line_handlers(handler):
         else:
             line_bot_api.reply_message(
                 event.reply_token,
-                TextSendMessage(text="處理音訊時出錯")
+                TextSendMessage(text="合成語音時錯誤，請檢查 TTS Server")
             )
 
     @handler.add(MessageEvent, message=TextMessage)
@@ -170,7 +173,7 @@ def add_line_handlers(handler):
         else:
             line_bot_api.reply_message(
                 event.reply_token,
-                TextSendMessage(text="處理音訊時出錯")
+                TextSendMessage(text="合成語音時錯誤，請檢查 TTS Server")
             )
 
 @app.route("/webhook", methods=["POST"])
