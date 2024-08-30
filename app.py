@@ -57,6 +57,7 @@ def get_text_from_audio(audio_path):
     headers = {}
     response = requests.post(STT_API_URL, headers=headers, data=payload, files=files)
     data = response.json()
+    logging.info(f"STT=> {data}")
     return data.get('result', '無法辨識音訊')
 
 #LLM語言模型 (需先架設好 LLM Server)
@@ -66,6 +67,7 @@ def get_response_from_llm(query):
     headers = {}
     response = requests.post(LLM_API_URL, headers=headers, data=payload, files=files)
     data = response.json()
+    logging.info(f"LLM=> {data}")
     return data.get('result', '無法獲取回應')
 
 #文字轉語音  (需先架設好 TTS Server)
