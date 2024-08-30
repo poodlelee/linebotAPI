@@ -56,9 +56,18 @@ def get_text_from_audio(audio_path):
     ]
     headers = {}
     response = requests.post(STT_API_URL, headers=headers, data=payload, files=files)
-    data = response.json()
-    logging.info(f"STT=> {data}")
-    return data.get('result', '無法辨識音訊')
+    
+    if response.status_code == 200:
+        try:
+            data = response.json()
+            logging.info(f"STT=> {data}")
+            return data.get('result', '無法辨識音訊')
+        except requests.exceptions.JSONDecodeError:
+            logging.error("Failed to decode JSON response")
+            return '無法辨識音訊'
+    else:
+        logging.error(f"STT API request failed with status code {response.status_code}")
+        return 'STT API 請求失敗'
 
 #LLM語言模型 (需先架設好 LLM Server)
 def get_response_from_llm(query):
